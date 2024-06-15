@@ -18,7 +18,7 @@
 # Model Arguments
 model:
   _component_: torchtune.models.phi3.qlora_phi3_mini
-  lora_attn_modules: ['q_proj', 'v_proj', 'k_proj', 'output_proj']
+  lora_attn_modules: ["q_proj", "v_proj", "k_proj", "output_proj"]
   apply_lora_to_mlp: True
   apply_lora_to_output: False
   lora_rank: 8
@@ -31,10 +31,8 @@ tokenizer:
 checkpointer:
   _component_: torchtune.utils.FullModelHFCheckpointer
   checkpoint_dir: /tmp/Phi-3-mini-4k-instruct
-  checkpoint_files: [
-    model-00001-of-00002.safetensors,
-    model-00002-of-00002.safetensors
-  ]
+  checkpoint_files:
+    [model-00001-of-00002.safetensors, model-00002-of-00002.safetensors]
   recipe_checkpoint: null
   output_dir: /tmp/Phi-3-mini-4k-instruct
   model_type: PHI3_MINI
@@ -42,7 +40,7 @@ resume_from_checkpoint: False
 
 # Dataset and Sampler
 dataset:
-  _component_: torchtune.datasets.alpaca_cleaned_dataset
+  _component_: torchtune.datasets.discord_dataset
   train_on_input: True
 seed: null
 shuffle: True

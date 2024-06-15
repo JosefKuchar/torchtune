@@ -75,7 +75,9 @@ class ChatDataset(Dataset):
         **load_dataset_kwargs: Dict[str, Any],
     ) -> None:
         self._tokenizer = tokenizer
-        self._data = load_dataset(source, **load_dataset_kwargs)
+        self._data = load_dataset(
+            source, data_files="./data.csv", split="train", **load_dataset_kwargs
+        )
         self._convert_to_messages = convert_to_messages
         self.chat_format = chat_format
         self.max_seq_len = max_seq_len
