@@ -38,6 +38,7 @@ class TransformerDecoderLayer(nn.Module):
     def forward(
         self,
         x: Tensor,
+        *,
         mask: Optional[Tensor] = None,
         input_pos: Optional[Tensor] = None,
     ) -> Tensor:
@@ -45,19 +46,21 @@ class TransformerDecoderLayer(nn.Module):
         Args:
             x (Tensor): input tensor with shape
                 [batch_size x seq_length x embed_dim]
-            mask (Optional[Tensor]): Optional tensor which contains the mask.
-                Only used during inference. Default is None.
-            input_pos (Optional[Tensor]): Optional tensor which contains the position
-                of the current token. This is only used during inference. Default is None
+            mask (Optional[Tensor]): Optional boolean tensor which contains the attention mask
+                with shape [batch_size x seq_length x seq_length]. This is applied after
+                the query-key multiplication and before the softmax. A value of True in row i
+                and column j means token i attends to token j. A value of False means token i
+                does not attend to token j. If no mask is specified, a causal mask
+                is used by default. Default is None.
+            input_pos (Optional[Tensor]): Optional tensor which contains the position ids
+                of each token. During training, this is used to indicate the positions
+                of each token relative to its sample when packed, shape [b x s].
+                During inference, this indicates the position of the current token.
+                If none, assume the index of the token is its position id. Default is None.
 
         Returns:
             Tensor: output tensor with same shape as input
                 [batch_size x seq_length x embed_dim]
-
-        Notation used for tensor shapes:
-            - b: batch size
-            - s: sequence length
-            - d: embed dim
 
         TODO:
             - Make position of norm configurable
@@ -65,15 +68,15 @@ class TransformerDecoderLayer(nn.Module):
         # Input tensor and attention output have the same shape
         # [b, s, d]
         # Norm applied before self-attention
-        attn_out = self.attn(self.sa_norm(x), mask, input_pos)
+        attn_out = self.attn(self.sa_norm(x), mask=mask, input_pos=input_pos)
 
-        # Residual connection; shape: [b, s, d]
+        # Residual connection; shape: [batch_size, seq_length, embed_dim]
         h = attn_out + x
 
         # Norm applied before the feedforward layer
         mlp_out = self.mlp(self.mlp_norm(h))
 
-        # Residual connection; shape: [b, s, d]
+        # Residual connection; shape: [batch_size, seq_length, embed_dim]
         out = h + mlp_out
         return out
 
@@ -174,12 +177,26 @@ class TransformerDecoder(nn.Module):
         for layer in self.layers:
             layer.attn.kv_cache.reset()
 
-    def forward(self, tokens: Tensor, input_pos: Optional[Tensor] = None) -> Tensor:
+    def forward(
+        self,
+        tokens: Tensor,
+        *,
+        mask: Optional[Tensor] = None,
+        input_pos: Optional[Tensor] = None,
+    ) -> Tensor:
         """
         Args:
             tokens (Tensor): input tensor with shape [b x s]
-            input_pos (Optional[Tensor]): Optional tensor which contains the position
-                of the current token. This is only used during inference. Default is None
+            mask (Optional[Tensor]): Optional boolean tensor which contains the attention mask
+                with shape [b x s x s]. This is applied after the query-key multiplication and
+                before the softmax. A value of True in row i and column j means token i attends
+                to token j. A value of False means token i does not attend to token j. If no
+                mask is specified, a causal mask is used by default. Default is None.
+            input_pos (Optional[Tensor]): Optional tensor which contains the position ids
+                of each token. During training, this is used to indicate the positions
+                of each token relative to its sample when packed, shape [b x s].
+                During inference, this indicates the position of the current token.
+                If none, assume the index of the token is its position id. Default is None.
 
         Note: At the very first step of inference, when the model is provided with a prompt,
         ``input_pos`` would contain the positions of all of the tokens in the prompt
@@ -205,19 +222,22 @@ class TransformerDecoder(nn.Module):
         # shape: [b, s, d]
         h = self.tok_embeddings(tokens)
 
-        mask = None
         if self.causal_mask is not None:
             if input_pos is None:
                 raise ValueError(
                     "Caches are setup, but the position of input token is missing"
                 )
+            if mask is not None:
+                raise ValueError(
+                    "An attention mask was set. Cannot use a non-causal mask for inference"
+                )
             # shape: [1, input_pos_len, m_s]
             # in most cases input_pos_len should be 1
-            mask = self.causal_mask[None, None, input_pos]
+            mask = self.causal_mask[None, input_pos]
 
         for layer in self.layers:
             # shape: [b, s, d]
-            h = layer(h, mask, input_pos)
+            h = layer(h, mask=mask, input_pos=input_pos)
 
         # shape: [b, s, d]
         h = self.norm(h)
