@@ -61,6 +61,7 @@ class DiscordDataset(Dataset):
                 tokens += self._tokenizer.encode("\n\n", add_bos=False, add_eos=False)
                 tokenized_messages.append(tokens)
             current_chunk = [self._tokenizer.bos_id]
+            current_chunk_length = 0
             i = 0
             while True:
                 if (
@@ -69,13 +70,15 @@ class DiscordDataset(Dataset):
                     > self.max_seq_len - 1
                 ):
                     current_chunk += [self._tokenizer.eos_id]
+                    current_chunk_length = 0
                     self._data.append(current_chunk)
                     current_chunk = [self._tokenizer.bos_id]
-                    if i == len(tokenized_messages):
+                    if i >= len(tokenized_messages):
                         break
                     # Create overlap between chunks
-                    i -= 4
+                    i -= min(4, current_chunk_length - 1)
                 else:
+                    current_chunk_length += 1
                     current_chunk += tokenized_messages[i]
                     i += 1
         print(f"Number of chunks: {len(self._data)}")
@@ -100,5 +103,5 @@ def discord_dataset(
     return DiscordDataset(
         tokenizer=tokenizer,
         source=source,
-        max_seq_len=512,
+        max_seq_len=2048,
     )
