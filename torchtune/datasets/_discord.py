@@ -3,6 +3,7 @@ from datasets import load_dataset
 from torch.utils.data import Dataset
 from torchtune.modules.tokenizers import Tokenizer
 import json
+import clearml
 from tqdm import tqdm
 
 
@@ -16,7 +17,10 @@ class DiscordDataset(Dataset):
         **load_dataset_kwargs: Dict[str, Any],
     ) -> None:
         self._tokenizer = tokenizer
-        with open("./backrooms.json", "r") as f:
+        data_path = clearml.Dataset.get(
+            dataset_id="100b065efe5a41b2a1dfcd1bbc2cd780"
+        ).get_local_copy()
+        with open(f"{data_path}/backrooms.json", "r") as f:
             data = json.load(f)["rooms"]
         self.max_seq_len = max_seq_len
         self._data = []
@@ -96,5 +100,5 @@ def discord_dataset(
     return DiscordDataset(
         tokenizer=tokenizer,
         source=source,
-        max_seq_len=4096,
+        max_seq_len=512,
     )
