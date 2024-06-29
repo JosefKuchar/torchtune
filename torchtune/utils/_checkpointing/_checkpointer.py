@@ -10,6 +10,7 @@ import os
 
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Protocol
+import wandb
 
 import torch
 from torchtune import utils
@@ -93,11 +94,9 @@ class _CheckpointerInterface(Protocol):
 
     """
 
-    def load_checkpoint(self, **kwargs) -> Dict[str, Any]:
-        ...
+    def load_checkpoint(self, **kwargs) -> Dict[str, Any]: ...
 
-    def save_checkpoint(self, state_dict: Dict[str, Any], **kwargs) -> None:
-        ...
+    def save_checkpoint(self, state_dict: Dict[str, Any], **kwargs) -> None: ...
 
 
 class FullModelTorchTuneCheckpointer(_CheckpointerInterface):
@@ -536,13 +535,13 @@ class FullModelHFCheckpointer(_CheckpointerInterface):
                     "Saving Phi-3 Mini adapter weights to PEFT format is not supported, saving to torchtune format instead"
                 )
             else:
-                state_dict[
-                    utils.ADAPTER_KEY
-                ] = convert_weights.tune_to_peft_adapter_weights(
-                    state_dict[utils.ADAPTER_KEY],
-                    num_heads=self._config["num_attention_heads"],
-                    num_kv_heads=self._config["num_key_value_heads"],
-                    dim=self._config["hidden_size"],
+                state_dict[utils.ADAPTER_KEY] = (
+                    convert_weights.tune_to_peft_adapter_weights(
+                        state_dict[utils.ADAPTER_KEY],
+                        num_heads=self._config["num_attention_heads"],
+                        num_kv_heads=self._config["num_key_value_heads"],
+                        dim=self._config["hidden_size"],
+                    )
                 )
                 peft_output_path = Path.joinpath(
                     self._output_dir, "adapter_model"
@@ -560,10 +559,10 @@ class FullModelHFCheckpointer(_CheckpointerInterface):
                     "PEFT integration for Phi-3 Mini is not supported, skipping adapter config save"
                 )
             else:
-                state_dict[
-                    utils.ADAPTER_CONFIG
-                ] = convert_weights.tune_to_peft_adapter_config(
-                    state_dict[utils.ADAPTER_CONFIG]
+                state_dict[utils.ADAPTER_CONFIG] = (
+                    convert_weights.tune_to_peft_adapter_config(
+                        state_dict[utils.ADAPTER_CONFIG]
+                    )
                 )
                 output_path = Path.joinpath(self._output_dir, "adapter_config.json")
                 with open(output_path, "w") as f:
@@ -726,3 +725,36 @@ class FullModelMetaCheckpointer(_CheckpointerInterface):
                 f"{os.path.getsize(output_path) / 1000**3:.2f} GB "
                 f"saved to {output_path}"
             )
+
+
+class FullModelMetaWandBCheckpointer(FullModelMetaCheckpointer):
+    def __init__(self, project_name: str = "torchtune", *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.project_name = project_name
+
+    def save_checkpoint(
+        self,
+        state_dict: Dict[str, Any],
+        epoch: int,
+        intermediate_checkpoint: bool = False,
+    ):
+        super().save_checkpoint(state_dict, epoch, intermediate_checkpoint)
+        logger.info("Logging model checkpoint to wandb")
+        checkpoint_file = Path.joinpath(
+            self._output_dir, f"meta_model_{epoch}"
+        ).with_suffix(".pt")
+        run = wandb.init(project=self.project_name, entity="meta", job_type="checkpoint")
+        wandb_at = wandb.Artifact(
+            name=f"{self.project_name}_meta_model_{epoch}",
+            type="model",
+            # description of the model checkpoint
+            description="Model checkpoint",
+            # you can add whatever metadata you want as a dict
+            metadata={
+                "epoch": epoch,
+                "model_type": self._model_type,
+            },
+        )
+        wandb_at.add_file(checkpoint_file)
+        run.log_artifact(wandb_at)
+        logger.info(f"Model checkpoint logged to wandb: {wandb_at}")

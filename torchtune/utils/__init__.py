@@ -9,6 +9,7 @@ from ._checkpointing import (  # noqa
     FullModelMetaCheckpointer,
     FullModelTorchTuneCheckpointer,
     ModelType,
+    FullModelMetaWandBCheckpointer,
 )
 
 from ._device import get_device

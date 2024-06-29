@@ -5,17 +5,16 @@
 
 # Model arguments
 model:
-  _component_: torchtune.models.llama2.llama2_7b
+  _component_: torchtune.models.llama3.llama3_8b
 
 checkpointer:
-  _component_: torchtune.utils.FullModelHFCheckpointer
-  checkpoint_dir: /tmp/Llama-2-7b-hf/
+  _component_: torchtune.utils.FullModelMetaCheckpointer
+  checkpoint_dir: /zfs-pool/xsirov00/out/Meta-Llama-3-8B/
   checkpoint_files: [
-    pytorch_model-00001-of-00002.bin,
-    pytorch_model-00002-of-00002.bin,
+    meta_model_1.pt,
   ]
-  output_dir: /tmp/Llama-2-7b-hf/
-  model_type: LLAMA2
+  output_dir: /zfs-pool/xsirov00/out/Meta-Llama-3-8B/
+  model_type: LLAMA3
 
 device: cuda
 dtype: bf16
@@ -24,14 +23,14 @@ seed: 1234
 
 # Tokenizer arguments
 tokenizer:
-  _component_: torchtune.models.llama2.llama2_tokenizer
-  path: /tmp/Llama-2-7b-hf/tokenizer.model
+  _component_: torchtune.models.llama3.llama3_tokenizer
+  path: /zfs-pool/xsirov00/torchtune/Meta-Llama-3-8B/original/tokenizer.model
 
 # Generation arguments; defaults taken from gpt-fast
-prompt: "Hello, my name is"
+prompt: "Kam pojdeme na obed metju?"
 instruct_template: null
 chat_format: null
-max_new_tokens: 300
+max_new_tokens: 100
 temperature: 0.6 # 0.8 and 0.6 are popular values to try
 top_k: 300
 

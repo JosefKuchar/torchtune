@@ -8,12 +8,14 @@ from ._checkpointer import (  # noqa
     FullModelHFCheckpointer,
     FullModelMetaCheckpointer,
     FullModelTorchTuneCheckpointer,
+    FullModelMetaWandBCheckpointer,
 )
 from ._checkpointer_utils import ModelType  # noqa
 
 __all__ = [
     "FullModelHFCheckpointer",
     "FullModelMetaCheckpointer",
+    "FullModelMetaWandBCheckpointer",
     "FullModelTorchTuneCheckpointer",
     "ModelType",
 ]
